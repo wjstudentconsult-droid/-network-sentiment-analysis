@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PolSci Analytics – Network & Sentiment</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1b2333;--mut:#5d6881;--pri:#1f4e9c;--pri2:#e8eefb;--bd:#d9dfec;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141f;--card:#1a2133;--tx:#e8ecf6;--mut:#9aa5c0;--pri:#6c9bff;--pri2:#22304f;--bd:#2b3552;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141f;--card:#1a2133;--tx:#e8ecf6;--mut:#9aa5c0;--pri:#6c9bff;--pri2:#22304f;--bd:#2b3552;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:'Sarabun',system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:12px}
+h1{font-size:1.5rem;margin:0}h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--mut)}
+.sec{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+.sec h2{font-size:1.05rem;margin:0 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,.btn{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:9px}
+button:hover{background:var(--pri2)}
+button.on{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:600}
+button.go{background:#188a4f;border-color:#188a4f;color:#fff;font-weight:700}
+button.rs{background:#c0392b;border-color:#c0392b;color:#fff}
+input[type=file]{font:inherit;color:var(--tx);max-width:100%}
+.hint{color:var(--mut);font-size:.88rem;margin-top:6px}
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px;max-height:420px}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+th{background:var(--pri2);position:sticky;top:0}
+.note{background:var(--pri2);border-left:4px solid var(--pri);padding:10px 14px;margin:10px 0 18px;border-radius:6px;font-size:.93rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.cc{background:#fff;color:#222;border:1px solid var(--bd);border-radius:12px;padding:10px}
+.cc h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cc h4 button{font-size:.75rem;padding:3px 8px;color:#222;background:#f1f3f9}
+.cv{position:relative;height:330px;overflow:hidden}
+.cv canvas{width:100%!important;height:100%!important;display:block}
+.msg{color:var(--mut);font-size:.92rem}
+.hide{display:none}
+@media(max-width:420px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+ <h1><span data-i="title"></span><small data-i="sub"></small></h1>
+ <div class="row"><span data-i="lang"></span>
+  <button id="bTH" class="on">ไทย</button><button id="bEN">English</button></div>
+</header>
+
+<div class="sec"><h2>1. <span data-i="s1"></span></h2>
+ <div class="row"><button id="mNet" class="on" data-i="net"></button><button id="mSen" data-i="sen"></button></div>
+ <div class="hint" id="fmt"></div></div>
+
+<div class="sec"><h2>2. <span data-i="s2"></span></h2>
+ <div class="row"><input type="file" id="file" accept=".xlsx,.xls,.csv">
+  <button id="bSample" data-i="sample"></button>
+  <button id="bDlSample" data-i="dlsample"></button></div>
+ <div class="hint" id="fstat"></div>
+ <div id="lexbox" class="hide" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd)">
+  <div class="row"><b data-i="lexT"></b><input type="file" id="lexfile" accept=".xlsx,.xls,.csv">
+   <button id="bDlLex" data-i="dllex"></button>
+   <label><input type="checkbox" id="lexRep"> <span data-i="lexRep"></span></label></div>
+  <div class="hint" data-i="lexHint"></div><div class="hint" id="lexstat"></div></div></div>
+
+<div class="sec"><h2>3. <span data-i="s3"></span></h2>
+ <div class="row"><button class="go" id="bRun" data-i="run"></button>
+ <button class="rs" id="bReset" data-i="reset"></button></div>
+ <div class="msg" id="status"></div></div>
+
+<div id="out" class="hide">
+ <div class="sec"><h2>4. <span data-i="s4"></span></h2>
+  <div class="row" style="margin-bottom:10px"><button id="bDlTab" data-i="dltab"></button></div>
+  <div id="tables"></div></div>
+ <div class="sec"><h2>5. <span data-i="s5"></span></h2>
+  <div class="row" style="margin-bottom:10px"><button id="bShowCh" class="on" data-i="showch"></button>
+   <button id="bDlAll" data-i="dlall"></button></div>
+  <div id="charts" class="grid"></div></div>
+</div>
+<div class="hint" style="text-align:center;margin:20px 0" data-i="foot"></div>
+</div>
+
+<script>
+const T={
+th:{title:"PolSci Analytics",sub:"วิเคราะห์ข้อมูลรัฐศาสตร์และเศรษฐศาสตร์การเมือง ด้วย Network Analysis และ Sentiment Analysis",lang:"ภาษา:",
+s1:"เลือกวิธีการวิเคราะห์",net:"Network Analysis (วิเคราะห์เครือข่าย)",sen:"Sentiment Analysis (วิเคราะห์ความรู้สึก)",
+s2:"แนบไฟล์ข้อมูล Excel",lexT:"พจนานุกรมของคุณ (ไม่บังคับ):",dllex:"ดาวน์โหลดไฟล์พจนานุกรมตัวอย่าง",lexRep:"ใช้เฉพาะพจนานุกรมของฉัน (แทนที่พจนานุกรมพื้นฐาน)",lexHint:"ไฟล์ Excel คอลัมน์ Word (คำ) และ Type (pos/neg หรือ บวก/ลบ) ค่าเริ่มต้นคือนำไปรวมกับพจนานุกรมพื้นฐาน และต้องกดประมวลผลใหม่หลังอัปโหลด",lexOk:"โหลดพจนานุกรมแล้ว (บวก / ลบ): ",lexErr:"อ่านพจนานุกรมไม่ได้ กรุณาตรวจสอบคอลัมน์ Word และ Type",sample:"ทดลองข้อมูลตัวอย่าง",dlsample:"ดาวน์โหลดไฟล์ตัวอย่าง Excel",s3:"ประมวลผล",run:"ประมวลผล",reset:"รีเซ็ตหน้า",
+s4:"ผลการวิเคราะห์ (ตารางสถิติ)",dltab:"ดาวน์โหลดตารางเป็น Excel",s5:"กราฟนำเสนอผล",showch:"แสดงกราฟทั้งหมด",dlall:"ดาวน์โหลดกราฟทั้งหมด (PNG)",dlpng:"ดาวน์โหลด PNG",
+fmtN:"รูปแบบไฟล์: คอลัมน์ Source (ต้นทาง), Target (ปลายทาง), Weight (น้ำหนักความสัมพันธ์ ไม่บังคับ) เช่น ความสัมพันธ์ระหว่างพรรค กลุ่มทุน หน่วยงาน",
+fmtS:"รูปแบบไฟล์: คอลัมน์ Text (ข้อความ), Actor (ผู้พูด/กลุ่ม/สื่อ ไม่บังคับ), Date (วันที่/เดือน ไม่บังคับ) รองรับข้อความภาษาไทยและอังกฤษ",
+nofile:"ยังไม่ได้แนบไฟล์ หรือเลือกข้อมูลตัวอย่าง",loaded:"โหลดข้อมูลแล้ว: ",rows:" แถว",usingS:"กำลังใช้ข้อมูลตัวอย่าง: ",done:"ประมวลผลเสร็จแล้ว",err:"ไม่สามารถอ่านข้อมูลได้ กรุณาตรวจสอบรูปแบบไฟล์",
+nodl:"ไม่สามารถดาวน์โหลดในมุมมองนี้ได้",foot:"เครื่องมือเพื่อการศึกษา: ผลลัพธ์ Sentiment ใช้พจนานุกรมคำอย่างง่าย ควรตรวจสอบร่วมกับการอ่านข้อความจริง",
+metric:"ตัวชี้วัด",value:"ค่า",meaning:"ความหมาย",node:"โหนด",deg:"ดีกรี",ind:"เข้า (In)",outd:"ออก (Out)",wdeg:"ดีกรีถ่วงน้ำหนัก",btw:"Betweenness",clo:"Closeness",eig:"Eigenvector",clu:"Clustering",com:"ชุมชน",size:"ขนาด",members:"สมาชิก",
+g_n:"จำนวนโหนด",g_m:"จำนวนเส้นเชื่อมไม่ซ้ำ",g_d:"ความหนาแน่น (Density)",g_ad:"ดีกรีเฉลี่ย",g_c:"Clustering เฉลี่ย",g_cc:"จำนวนองค์ประกอบเชื่อมโยง",g_dm:"เส้นผ่านศูนย์กลาง (Diameter)",g_ap:"ระยะทางเฉลี่ย",g_k:"จำนวนชุมชน",g_q:"Modularity (Q)",g_r:"Reciprocity",g_w:"น้ำหนักรวม",
+m_n:"จำนวนผู้เล่น/หน่วยในเครือข่าย",m_m:"จำนวนความสัมพันธ์",m_d:"ใกล้ 1 = เครือข่ายแน่นหนา ใกล้ 0 = หลวม",m_ad:"จำนวนความสัมพันธ์เฉลี่ยต่อโหนด",m_c:"แนวโน้มที่เพื่อนบ้านเชื่อมกันเอง",m_cc:"1 = เครือข่ายเชื่อมถึงกันทั้งหมด",m_dm:"ระยะสั้นที่สุดที่ไกลที่สุดระหว่างสองโหนด",m_ap:"จำนวนก้าวเฉลี่ยระหว่างโหนด",m_k:"กลุ่มย่อยจาก Label Propagation",m_q:"มากกว่า 0.3 = โครงสร้างชุมชนชัดเจน",m_r:"สัดส่วนความสัมพันธ์ที่ตอบกลับสองทาง",m_w:"ผลรวมน้ำหนักทุกเส้น",
+tG:"สถิติระดับเครือข่าย",tN:"สถิติระดับโหนด (Centrality)",tC:"ชุมชน (Community)",
+exG:(o)=>`เครือข่ายมี ${o.n} โหนด และ ${o.m} เส้นเชื่อม ความหนาแน่น ${o.d.toFixed(3)} ซึ่ง${o.d>0.3?"ค่อนข้างสูง แสดงว่าผู้เล่นมีปฏิสัมพันธ์กันหนาแน่น":"ค่อนข้างต่ำ แสดงว่าความสัมพันธ์กระจุกตัวเป็นบางส่วน"} ระยะทางเฉลี่ย ${o.ap.toFixed(2)} ก้าว เส้นผ่านศูนย์กลาง ${o.dm} พบ ${o.k} ชุมชน (Modularity = ${o.q.toFixed(3)}) ${o.q>0.3?"บ่งชี้ว่ามีการแบ่งขั้วหรือกลุ่มผลประโยชน์ชัดเจน":"บ่งชี้ว่าการแบ่งกลุ่มไม่ชัดเจนนัก"}`,
+exN:(o)=>`ผู้เล่นที่มีอิทธิพลเชิงโครงสร้างสูงสุด (ดีกรี) คือ ${o.a} ส่วนผู้ที่ทำหน้าที่เป็น “สะพาน” เชื่อมกลุ่มต่างๆ มากที่สุด (Betweenness) คือ ${o.b} ผู้ที่เข้าถึงโหนดอื่นได้เร็วที่สุด (Closeness) คือ ${o.c} และผู้ที่เชื่อมกับผู้เล่นสำคัญคนอื่น (Eigenvector) คือ ${o.e} ในเชิงเศรษฐศาสตร์การเมือง ผู้ที่มี Betweenness สูงมักควบคุมการไหลของข้อมูล ทรัพยากร หรือการต่อรองระหว่างกลุ่ม`,
+exC:(o)=>`ชุมชนที่ใหญ่ที่สุดมี ${o.s} โหนด ชุมชนสะท้อนกลุ่มพันธมิตรหรือกลุ่มผลประโยชน์ที่เชื่อมโยงกันหนาแน่นกว่ากลุ่มอื่น นอกจากนี้ PageRank (คอลัมน์ท้ายตารางโหนด) วัดอิทธิพลตามทิศทางความสัมพันธ์ ผู้ที่ถูกชี้ถึงจากผู้เล่นสำคัญจะได้ค่าสูง ส่วน Heatmap แสดงน้ำหนักความสัมพันธ์จากต้นทาง (แถว) ไปปลายทาง (คอลัมน์) ของ 20 โหนดที่มีดีกรีสูงสุด เรียงตามชุมชน บล็อกสีเข้มเป็นกลุ่มก้อนบ่งชี้พันธมิตรภายในกลุ่ม`,
+s_n:"จำนวนข้อความ",s_p:"เชิงบวก",s_u:"เป็นกลาง",s_g:"เชิงลบ",s_m:"คะแนนเฉลี่ย",s_md:"มัธยฐาน",s_sd:"ส่วนเบี่ยงเบนมาตรฐาน",s_mn:"ต่ำสุด",s_mx:"สูงสุด",s_pp:"% เชิงบวก",s_pg:"% เชิงลบ",
+tS:"สถิติรวมของ Sentiment",tA:"จำแนกตามผู้พูด/กลุ่ม",tT:"แนวโน้มตามเวลา",tW:"คำที่พบบ่อยในพจนานุกรม",tD:"รายละเอียดรายข้อความ",
+word:"คำ",type:"ประเภท",freq:"ความถี่",text:"ข้อความ",pos:"บวก",neg:"ลบ",score:"คะแนน",label:"ผลลัพธ์",actor:"ผู้พูด/กลุ่ม",time:"ช่วงเวลา",n:"จำนวน",
+exS:(o)=>`จาก ${o.n} ข้อความ คะแนนเฉลี่ย ${o.m.toFixed(3)} (ช่วง -1 ถึง +1) ${o.m>0.05?"โดยรวมเป็นเชิงบวก":o.m<-0.05?"โดยรวมเป็นเชิงลบ":"โดยรวมเป็นกลาง"} เชิงบวก ${o.pp.toFixed(1)}% เชิงลบ ${o.pg.toFixed(1)}% ส่วนเบี่ยงเบนมาตรฐาน ${o.sd.toFixed(3)} ${o.sd>0.5?"แสดงถึงความเห็นที่แตกต่างและแบ่งขั้วสูง":"แสดงถึงความเห็นที่ค่อนข้างใกล้เคียงกัน"}`,
+exA:(o)=>`กลุ่มที่มีทัศนคติเชิงบวกสูงสุดคือ ${o.hi} และเชิงลบสูงสุดคือ ${o.lo} ช่วยบ่งชี้ว่าผู้มีส่วนได้ส่วนเสียกลุ่มใดสนับสนุนหรือคัดค้านนโยบาย/ประเด็นที่ศึกษา`,
+exT:"ดูทิศทางคะแนนเฉลี่ยตามเวลา เพื่อประเมินว่าอารมณ์ทางการเมืองหรือเศรษฐกิจดีขึ้นหรือแย่ลง",exW:"คำที่ปรากฏบ่อยเป็นตัวบ่งชี้ประเด็นหลักที่ขับเคลื่อนความรู้สึกในข้อมูล",exD:"ตารางแสดงคะแนนรายข้อความ (บวก−ลบ)/(บวก+ลบ) เกณฑ์: >0.05 บวก, <−0.05 ลบ",
+c_graph:"แผนภาพเครือข่าย (ขนาด=ดีกรี สี=ชุมชน)",c_dg:"เครือข่ายแบบมีทิศทาง (ลูกศร ขนาด=In-degree)",c_heat:"Heatmap เมทริกซ์ความสัมพันธ์ (แถว=ต้นทาง คอลัมน์=ปลายทาง)",c_deg:"ดีกรี (Top 15)",c_btw:"Betweenness (Top 15)",c_clo:"Closeness (Top 15)",c_eig:"Eigenvector (Top 15)",c_wd:"ดีกรีถ่วงน้ำหนัก (Top 15)",c_com:"สัดส่วนขนาดชุมชน",c_hist:"การแจกแจงดีกรี",c_sc:"ดีกรี vs Betweenness",c_rad:"เปรียบเทียบ 5 โหนดสำคัญ (ปรับสเกล)",c_clu:"Clustering Coefficient (Top 15)",c_io:"In-degree vs Out-degree (Top 10)",
+c_pie:"สัดส่วน Sentiment",c_sh:"การแจกแจงคะแนน",c_am:"คะแนนเฉลี่ยตามผู้พูด/กลุ่ม",c_st:"Sentiment แบบสะสม (Stacked) ตามผู้พูด",c_ln:"แนวโน้มคะแนนเฉลี่ยตามเวลา",c_wp:"คำเชิงบวกที่พบบ่อย",c_wn:"คำเชิงลบที่พบบ่อย",c_ss:"คำบวก vs คำลบ รายข้อความ",c_ad:"สัดส่วนจำนวนข้อความตามผู้พูด"},
+en:{title:"PolSci Analytics",sub:"Political science and political economy data analysis using Network Analysis and Sentiment Analysis",lang:"Language:",
+s1:"Choose analysis method",net:"Network Analysis",sen:"Sentiment Analysis",
+s2:"Upload Excel data",lexT:"Your own lexicon (optional):",dllex:"Download sample lexicon file",lexRep:"Use only my lexicon (replace the built-in one)",lexHint:"Excel file with columns Word and Type (pos/neg). By default it is merged with the built-in lexicon; press Process again after uploading.",lexOk:"Lexicon loaded (positive / negative): ",lexErr:"Cannot read lexicon. Please check the Word and Type columns.",sample:"Try sample data",dlsample:"Download sample Excel file",s3:"Process",run:"Process",reset:"Reset page",
+s4:"Results (statistical tables)",dltab:"Download tables as Excel",s5:"Charts",showch:"Show all charts",dlall:"Download all charts (PNG)",dlpng:"Download PNG",
+fmtN:"File format: columns Source, Target, Weight (optional), e.g. relations among parties, business groups and agencies.",
+fmtS:"File format: columns Text, Actor (speaker/group/media, optional), Date (date/month, optional). Thai and English texts are supported.",
+nofile:"No file yet – upload one or use sample data",loaded:"Loaded: ",rows:" rows",usingS:"Using sample data: ",done:"Processing complete",err:"Cannot read data. Please check the file format.",
+nodl:"Download is not available in this view",foot:"Educational tool: sentiment uses a simple lexicon; always verify with close reading of the actual texts.",
+metric:"Metric",value:"Value",meaning:"Interpretation",node:"Node",deg:"Degree",ind:"In",outd:"Out",wdeg:"Weighted degree",btw:"Betweenness",clo:"Closeness",eig:"Eigenvector",clu:"Clustering",com:"Community",size:"Size",members:"Members",
+g_n:"Nodes",g_m:"Unique edges",g_d:"Density",g_ad:"Average degree",g_c:"Average clustering",g_cc:"Connected components",g_dm:"Diameter",g_ap:"Average path length",g_k:"Communities",g_q:"Modularity (Q)",g_r:"Reciprocity",g_w:"Total weight",
+m_n:"Number of actors in the network",m_m:"Number of relations",m_d:"Near 1 = dense network; near 0 = sparse",m_ad:"Average relations per node",m_c:"Tendency of neighbors to connect to each other",m_cc:"1 = fully connected network",m_dm:"Longest shortest path between two nodes",m_ap:"Average steps between nodes",m_k:"Subgroups via label propagation",m_q:"Above 0.3 = clear community structure",m_r:"Share of relations that are mutual",m_w:"Sum of all edge weights",
+tG:"Network-level statistics",tN:"Node-level statistics (Centrality)",tC:"Communities",
+exG:(o)=>`The network has ${o.n} nodes and ${o.m} edges. Density is ${o.d.toFixed(3)}, which is ${o.d>0.3?"fairly high, indicating dense interaction among actors":"fairly low, indicating that ties are concentrated in parts of the network"}. Average path length is ${o.ap.toFixed(2)} steps and diameter is ${o.dm}. ${o.k} communities were found (modularity = ${o.q.toFixed(3)}), ${o.q>0.3?"suggesting clear polarization or interest-group blocs":"suggesting weakly defined blocs"}.`,
+exN:(o)=>`The structurally most prominent actor (degree) is ${o.a}. The strongest broker bridging groups (betweenness) is ${o.b}. The actor with fastest reach to others (closeness) is ${o.c}, and the one best tied to other important actors (eigenvector) is ${o.e}. In political economy terms, high-betweenness actors often control the flow of information, resources or bargaining between groups.`,
+exC:(o)=>`The largest community has ${o.s} nodes. Communities reflect coalitions or interest groups more densely tied internally than to the rest. PageRank (last column of the node table) measures directed influence: actors pointed to by important actors score high. The heatmap shows tie weights from source (rows) to target (columns) for the 20 highest-degree nodes, ordered by community; dark blocks along the diagonal indicate intra-group alliances.`,
+s_n:"Number of texts",s_p:"Positive",s_u:"Neutral",s_g:"Negative",s_m:"Mean score",s_md:"Median",s_sd:"Standard deviation",s_mn:"Minimum",s_mx:"Maximum",s_pp:"% Positive",s_pg:"% Negative",
+tS:"Overall sentiment statistics",tA:"By actor / group",tT:"Trend over time",tW:"Most frequent lexicon words",tD:"Per-text details",
+word:"Word",type:"Type",freq:"Frequency",text:"Text",pos:"Pos",neg:"Neg",score:"Score",label:"Label",actor:"Actor / group",time:"Period",n:"Count",
+exS:(o)=>`Across ${o.n} texts the mean score is ${o.m.toFixed(3)} (range -1 to +1), ${o.m>0.05?"overall positive":o.m<-0.05?"overall negative":"overall neutral"}. ${o.pp.toFixed(1)}% are positive and ${o.pg.toFixed(1)}% negative. The standard deviation is ${o.sd.toFixed(3)}, ${o.sd>0.5?"showing divergent, polarized opinions":"showing relatively similar opinions"}.`,
+exA:(o)=>`The most positive group is ${o.hi} and the most negative is ${o.lo}, indicating which stakeholders support or oppose the policy or issue studied.`,
+exT:"Shows the direction of mean sentiment over time to assess whether political or economic mood is improving or worsening.",exW:"Frequent words indicate the main issues driving sentiment in the data.",exD:"Score = (pos − neg)/(pos + neg). Rule: > 0.05 positive, < −0.05 negative.",
+c_graph:"Network graph (size = degree, color = community)",c_dg:"Directed network (arrows, size = in-degree)",c_heat:"Relationship matrix heatmap (row = source, column = target)",c_deg:"Degree (Top 15)",c_btw:"Betweenness (Top 15)",c_clo:"Closeness (Top 15)",c_eig:"Eigenvector (Top 15)",c_wd:"Weighted degree (Top 15)",c_com:"Community size share",c_hist:"Degree distribution",c_sc:"Degree vs Betweenness",c_rad:"Top 5 nodes compared (scaled)",c_clu:"Clustering coefficient (Top 15)",c_io:"In-degree vs Out-degree (Top 10)",
+c_pie:"Sentiment share",c_sh:"Score distribution",c_am:"Mean score by actor",c_st:"Stacked sentiment by actor",c_ln:"Mean score over time",c_wp:"Frequent positive words",c_wn:"Frequent negative words",c_ss:"Positive vs negative words per text",c_ad:"Share of texts by actor"}};
+
+const LEX={pos:["ดี","เติบโต","ฟื้นตัว","สำเร็จ","สนับสนุน","เชื่อมั่น","โปร่งใส","ก้าวหน้า","ยอดเยี่ยม","เห็นด้วย","ประโยชน์","เข้มแข็ง","มั่นคง","ปรับปรุง","พอใจ","ความหวัง","สันติ","เป็นธรรม","good","growth","recovery","success","support","trust","transparent","progress","excellent","agree","benefit","strong","stable","improve","hope","peace","fair","effective","เสถียรภาพ","ปฏิรูป","ประสิทธิภาพ","ความร่วมมือ","ยั่งยืน","เสรีภาพ","ประชาธิปไตย","เจริญ","democracy","freedom","cooperation","sustainable","efficient","reform","prosper","stability"],
+neg:["แย่","ล้มเหลว","ทุจริต","วิกฤต","ขัดแย้ง","คัดค้าน","ประท้วง","เหลื่อมล้ำ","ว่างงาน","เงินเฟ้อ","หนี้","ไม่พอใจ","ผูกขาด","รุนแรง","ถดถอย","ล้าหลัง","กังวล","ไม่เป็นธรรม","เสี่ยง","bad","failure","corruption","crisis","conflict","oppose","protest","inequality","unemployment","inflation","debt","monopoly","violent","recession","concern","risk","unfair","weak","ยากจน","ความไม่สงบ","รัฐประหาร","เผด็จการ","ฉ้อโกง","เอารัดเอาเปรียบ","ตกต่ำ","ขาดดุล","poverty","coup","dictatorship","fraud","deficit","unrest","exploit","decline","scandal","sanction","shortage","austerity"]};
+
+const SAMPLE={network:{head:["Source","Target","Weight"],rows:[
+["รัฐบาล","สภาผู้แทนราษฎร",5],["รัฐบาล","กระทรวงการคลัง",5],["รัฐบาล","ธนาคารกลาง",3],["รัฐบาล","ภาคธุรกิจ",4],["รัฐบาล","สหภาพแรงงาน",2],["สภาผู้แทนราษฎร","วุฒิสภา",4],["สภาผู้แทนราษฎร","พรรคฝ่ายค้าน",5],["สภาผู้แทนราษฎร","สื่อมวลชน",2],["วุฒิสภา","ศาลรัฐธรรมนูญ",3],["ศาลรัฐธรรมนูญ","กกต.",3],["กกต.","พรรคฝ่ายค้าน",2],["กกต.","สื่อมวลชน",2],["พรรคฝ่ายค้าน","สื่อมวลชน",4],["พรรคฝ่ายค้าน","เอ็นจีโอ",3],["เอ็นจีโอ","สื่อมวลชน",3],["เอ็นจีโอ","สหภาพแรงงาน",4],["สหภาพแรงงาน","ภาคธุรกิจ",2],["ภาคธุรกิจ","ธนาคารกลาง",3],["ภาคธุรกิจ","กระทรวงการคลัง",4],["กระทรวงการคลัง","ธนาคารกลาง",5],["กระทรวงการคลัง","IMF",3],["ธนาคารกลาง","IMF",3],["IMF","ASEAN",2],["รัฐบาล","ASEAN",3],["ASEAN","ภาคธุรกิจ",2],["นักวิชาการ","สื่อมวลชน",3],["นักวิชาการ","เอ็นจีโอ",2],["นักวิชาการ","สภาผู้แทนราษฎร",1],["กระทรวงการคลัง","รัฐบาล",2]]},
+sentiment:{head:["Text","Actor","Date"],rows:[
+["นโยบายนี้ทำให้เศรษฐกิจเติบโตและฟื้นตัวดี ผมสนับสนุน","ภาคธุรกิจ","2025-01"],["The new budget shows strong growth and good progress","Government","2025-01"],["ปัญหาเงินเฟ้อและหนี้ครัวเรือนเป็นวิกฤต ประชาชนไม่พอใจ","แรงงาน","2025-01"],["Corruption and inequality remain a serious concern","Opposition","2025-01"],["กฎหมายนี้โปร่งใสและเป็นธรรม ช่วยสร้างความเชื่อมั่น","Government","2025-02"],["We oppose the monopoly, it is unfair and risky","Opposition","2025-02"],["ค่าแรงขึ้นเป็นประโยชน์ต่อแรงงาน แต่ผู้ประกอบการกังวล","แรงงาน","2025-02"],["Unemployment is rising and the recession is a crisis","Opposition","2025-02"],["การปฏิรูปประสบความสำเร็จ เศรษฐกิจมีความหวัง","ภาคธุรกิจ","2025-03"],["Stable policy and effective support improve investor trust","Government","2025-03"],["การผูกขาดทำให้เหลื่อมล้ำ เราคัดค้านและประท้วง","แรงงาน","2025-03"],["The debate was calm, the committee met on Tuesday","Media","2025-03"],["ความขัดแย้งรุนแรงขึ้น นโยบายล้มเหลวและแย่ลง","Opposition","2025-04"],["Peace talks show hope and improve regional stability","Government","2025-04"],["ภาคธุรกิจพอใจกับมาตรการ ช่วยให้การลงทุนมั่นคง","ภาคธุรกิจ","2025-04"],["รายงานข่าวประจำวันเกี่ยวกับการประชุมสภา","Media","2025-04"]]}};
+
+let lang='th',method='network',data=null,fromSample=false,charts=[],tables=[];
+const $=id=>document.getElementById(id),t=k=>T[lang][k];
+const PAL=['#1f4e9c','#e07b39','#188a4f','#c0392b','#8e44ad','#16a2b8','#d4ac0d','#7f8c8d','#e84393','#2c3e50','#6ab04c','#f0932b'];
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function applyLang(){
+ document.documentElement.lang=lang;
+ document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+ $('bTH').classList.toggle('on',lang==='th');$('bEN').classList.toggle('on',lang==='en');
+ $('fmt').textContent=t(method==='network'?'fmtN':'fmtS');$('lexbox').classList.toggle('hide',method!=='sentiment');
+ updStat();
+ if(data&&!$('out').classList.contains('hide'))run();
+}
+function updStat(){
+ $('fstat').textContent=!data?t('nofile'):(fromSample?t('usingS'):t('loaded'))+data.length+t('rows');
+}
+function setMethod(m){method=m;$('mNet').classList.toggle('on',m==='network');$('mSen').classList.toggle('on',m==='sentiment');
+ data=null;fromSample=false;$('file').value='';$('out').classList.add('hide');$('status').textContent='';applyLang();}
+function sampleRows(){const s=SAMPLE[method];return s.rows.map(r=>Object.fromEntries(s.head.map((h,i)=>[h,r[i]])));}
+
+async function dl(blob,name){
+ try{
+  const d=window.claude&&await window.claude.use('downloads');
+  if(d){await d.save({filename:name,data:blob});return}
+ }catch(e){if(e&&e.code==='declined')return}
+ try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();}catch(e){alert(t('nodl'))}
+}
+function xlsxBlob(wb){return new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:'application/octet-stream'})}
+
+/* ---------- file handling ---------- */
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+  data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});fromSample=false;updStat();$('status').textContent='';}
+  catch(x){data=null;$('status').textContent=t('err')}};r.readAsArrayBuffer(f);};
+$('bSample').onclick=()=>{data=sampleRows();fromSample=true;updStat();};
+$('bDlSample').onclick=()=>{const s=SAMPLE[method];const ws=XLSX.utils.aoa_to_sheet([s.head,...s.rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Data');dl(xlsxBlob(wb),'sample_'+method+'.xlsx');};
+$('bReset').onclick=()=>{custom={pos:[],neg:[]};lexRep=false;$('lexRep').checked=false;$('lexfile').value='';$('lexstat').textContent='';buildRX();data=null;fromSample=false;$('file').value='';killCharts();$('out').classList.add('hide');$('tables').innerHTML='';$('charts').innerHTML='';$('status').textContent='';tables=[];updStat();window.scrollTo(0,0);};
+$('mNet').onclick=()=>setMethod('network');$('mSen').onclick=()=>setMethod('sentiment');
+$('bTH').onclick=()=>{lang='th';applyLang()};$('bEN').onclick=()=>{lang='en';applyLang()};
+$('bRun').onclick=run;
+$('bDlTab').onclick=()=>{const wb=XLSX.utils.book_new();tables.forEach((tb,i)=>{const ws=XLSX.utils.aoa_to_sheet([tb.head,...tb.body]);XLSX.utils.book_append_sheet(wb,ws,('T'+(i+1)+' '+tb.name).replace(/[\\\/\?\*\[\]:]/g,'').slice(0,31));});dl(xlsxBlob(wb),'tables_'+method+'.xlsx');};
+$('bShowCh').onclick=()=>$('charts').scrollIntoView({behavior:'smooth'});
+$('bDlAll').onclick=async()=>{for(const c of charts)await savePng(c);};
+
+/* ---------- helpers ---------- */
+const f3=x=>Math.round(x*1000)/1000;
+function pick(keys,names,idx){return keys.find(k=>names.includes(String(k).trim().toLowerCase()))??keys[idx]}
+function renderTable(tb){
+ const h=`<h3 style="margin:14px 0 6px;font-size:1rem">${esc(tb.name)}</h3><div class="tw"><table><thead><tr>${tb.head.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${tb.body.map(r=>`<tr>${r.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="note">${esc(tb.note)}</div>`;
+ $('tables').insertAdjacentHTML('beforeend',h);
+}
+function killCharts(){charts.forEach(c=>c.destroy&&c.destroy());charts=[];}
+function card(title){
+ const d=document.createElement('div');d.className='cc';
+ d.innerHTML=`<h4><span>${esc(title)}</span><button>${t('dlpng')}</button></h4><div class="cv"><canvas></canvas></div>`;
+ $('charts').appendChild(d);const cv=d.querySelector('canvas');
+ const obj={cv,title,destroy(){}};d.querySelector('button').onclick=()=>savePng(obj);return obj;
+}
+function savePng(o){return new Promise(res=>{o.cv.toBlob(async b=>{if(b)await dl(b,o.title.replace(/[^\wก-๙]+/g,'_')+'.png');res()},'image/png')})}
+function mk(title,type,dataObj,opt={}){
+ const o=card(title);
+ const base={responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:['pie','doughnut','radar'].includes(type)||(dataObj.datasets.length>1),labels:{color:'#222'}}}};
+ if(!['pie','doughnut','radar'].includes(type)){base.scales={x:{ticks:{color:'#333'},title:{display:!!opt.xt,text:opt.xt,color:'#333'}},y:{ticks:{color:'#333'},beginAtZero:true,title:{display:!!opt.yt,text:opt.yt,color:'#333'}}};
+  if(opt.h){base.indexAxis='y'}
+  if(opt.stack){base.scales.x.stacked=true;base.scales.y.stacked=true}}
+ if(type==='radar')base.scales={r:{beginAtZero:true,ticks:{display:false}}};
+ const c=new Chart(o.cv,{type,data:dataObj,options:base});o.destroy=()=>c.destroy();charts.push(o);return o;
+}
+const topN=(arr,key,n=15)=>[...arr].sort((a,b)=>b[key]-a[key]).slice(0,n);
+const bar=(title,rows,key,color,lbl)=>mk(title,'bar',{labels:rows.map(r=>r.name),datasets:[{label:lbl||key,data:rows.map(r=>f3(r[key])),backgroundColor:color}]},{h:true});
+Chart.defaults.font.family="'Sarabun',sans-serif";
+Chart.register({id:'bg',beforeDraw(c){const x=c.ctx;x.save();x.globalCompositeOperation='destination-over';x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}});
+
+/* ---------- Network ---------- */
+function network(rows){
+ const ks=Object.keys(rows[0]||{});if(ks.length<2)throw 0;
+ const ka=pick(ks,['source','from','ต้นทาง'],0),kb=pick(ks,['target','to','ปลายทาง'],1),kw=pick(ks,['weight','น้ำหนัก'],2);
+ const ids=[],ix={};const id=s=>{s=String(s).trim();if(!(s in ix)){ix[s]=ids.length;ids.push(s)}return ix[s]};
+ const E=[];rows.forEach(r=>{if(r[ka]===''||r[kb]==='')return;const w=parseFloat(r[kw]);E.push([id(r[ka]),id(r[kb]),isNaN(w)?1:w])});
+ const n=ids.length;if(n<2)throw 0;
+ const adj=Array.from({length:n},()=>new Set()),ind=Array(n).fill(0),outd=Array(n).fill(0),wd=Array(n).fill(0),dir=new Set();let tw=0;
+ E.forEach(([a,b,w])=>{outd[a]++;ind[b]++;wd[a]+=w;wd[b]+=w;tw+=w;dir.add(a+'_'+b);if(a!==b){adj[a].add(b);adj[b].add(a)}});
+ const deg=adj.map(s=>s.size),m=deg.reduce((a,b)=>a+b,0)/2;
+ const bc=Array(n).fill(0),clo=Array(n).fill(0);let diam=0,ps=0,pc=0;
+ for(let s=0;s<n;s++){const S=[],P=Array.from({length:n},()=>[]),sg=Array(n).fill(0),d=Array(n).fill(-1);sg[s]=1;d[s]=0;const Q=[s];
+  while(Q.length){const v=Q.shift();S.push(v);adj[v].forEach(w=>{if(d[w]<0){d[w]=d[v]+1;Q.push(w)}if(d[w]===d[v]+1){sg[w]+=sg[v];P[w].push(v)}})}
+  const dl2=Array(n).fill(0);let sum=0;S.slice().reverse().forEach(w=>{P[w].forEach(v=>dl2[v]+=sg[v]/sg[w]*(1+dl2[w]));if(w!==s)bc[w]+=dl2[w]});
+  S.forEach(v=>{if(v!==s){sum+=d[v];ps+=d[v];pc++;diam=Math.max(diam,d[v])}});
+  clo[s]=sum>0?((S.length-1)/(n-1))*((S.length-1)/sum):0;}
+ const bcn=bc.map(x=>n>2?x/((n-1)*(n-2)):0);
+ let x=Array(n).fill(1);for(let it=0;it<200;it++){const y=x.map((v,i)=>v+[...adj[i]].reduce((a,j)=>a+x[j],0));const nr=Math.sqrt(y.reduce((a,b)=>a+b*b,0))||1;x=y.map(v=>v/nr)}
+ const cl=adj.map((s,v)=>{const nb=[...s],k=nb.length;if(k<2)return 0;let l=0;for(let i=0;i<k;i++)for(let j=i+1;j<k;j++)if(adj[nb[i]].has(nb[j]))l++;return 2*l/(k*(k-1))});
+ let lab=[...Array(n).keys()];for(let it=0;it<30;it++){let ch=false;for(let v=0;v<n;v++){const c={};adj[v].forEach(u=>c[lab[u]]=(c[lab[u]]||0)+1);let best=lab[v],bv=-1;Object.keys(c).map(Number).sort((a,b)=>a-b).forEach(k=>{if(c[k]>bv){bv=c[k];best=k}});if(best!==lab[v]){lab[v]=best;ch=true}}if(!ch)break}
+ const map={};let K=0;lab=lab.map(l=>{if(!(l in map))map[l]=++K;return map[l]});
+ let Q=0;for(let c=1;c<=K;c++){let e=0,dc=0;for(let v=0;v<n;v++)if(lab[v]===c){dc+=deg[v];adj[v].forEach(u=>{if(lab[u]===c)e++})}Q+=e/2/m-Math.pow(dc/(2*m),2)}
+ const seen=Array(n).fill(false);let cc=0;for(let s=0;s<n;s++)if(!seen[s]){cc++;const st=[s];seen[s]=true;while(st.length){const v=st.pop();adj[v].forEach(u=>{if(!seen[u]){seen[u]=true;st.push(u)}})}}
+ let rec=0;E.forEach(([a,b])=>{if(dir.has(b+'_'+a))rec++});
+ let pr=Array(n).fill(1/n);const os=Array(n).fill(0);E.forEach(([a,b,w])=>os[a]+=w);for(let it=0;it<100;it++){const np=Array(n).fill(0);let dg=0;for(let i=0;i<n;i++)if(!os[i])dg+=pr[i];E.forEach(([a,b,w])=>np[b]+=pr[a]*w/os[a]);pr=np.map(v=>.15/n+.85*(v+dg/n))}
+ const nodes=ids.map((name,i)=>({name,pr:pr[i],deg:deg[i],ind:ind[i],outd:outd[i],wd:f3(wd[i]),btw:bcn[i],clo:clo[i],eig:x[i],clu:cl[i],com:lab[i]}));
+ return{nodes,n,m,d:2*m/(n*(n-1)),ad:2*m/n,ac:cl.reduce((a,b)=>a+b,0)/n,cc,dm:diam,ap:pc?ps/pc:0,k:K,q:Q,r:E.length?rec/E.length:0,tw,adj,E,lab};
+}
+function drawGraph(R,dr){
+ const o=card(dr?t('c_dg'):t('c_graph'));const cv=o.cv,W=cv.parentElement.clientWidth||560,H=330;cv.width=W*2;cv.height=H*2;const g=cv.getContext('2d');g.scale(2,2);
+ const N=R.nodes.length,P=R.nodes.map((_,i)=>({x:W/2+Math.cos(i/N*6.28)*W/3,y:H/2+Math.sin(i/N*6.28)*H/3,vx:0,vy:0}));
+ const L=[];R.adj.forEach((s,a)=>s.forEach(b=>{if(a<b)L.push([a,b])}));
+ for(let it=0;it<400;it++){const cool=1-it/400;
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){let dx=P[i].x-P[j].x,dy=P[i].y-P[j].y,d2=dx*dx+dy*dy+.01,f=1800/d2,d=Math.sqrt(d2);P[i].vx+=dx/d*f;P[i].vy+=dy/d*f;P[j].vx-=dx/d*f;P[j].vy-=dy/d*f}
+  L.forEach(([a,b])=>{let dx=P[b].x-P[a].x,dy=P[b].y-P[a].y,d=Math.sqrt(dx*dx+dy*dy)+.01,f=(d-70)*.02;P[a].vx+=dx/d*f;P[a].vy+=dy/d*f;P[b].vx-=dx/d*f;P[b].vy-=dy/d*f});
+  P.forEach(p=>{p.vx+=(W/2-p.x)*.005;p.vy+=(H/2-p.y)*.005;p.x+=Math.max(-8,Math.min(8,p.vx))*cool;p.y+=Math.max(-8,Math.min(8,p.vy))*cool;p.vx*=.6;p.vy*=.6;p.x=Math.max(30,Math.min(W-30,p.x));p.y=Math.max(18,Math.min(H-18,p.y))})}
+ g.fillStyle='#fff';g.fillRect(0,0,W,H);g.strokeStyle='rgba(100,110,130,.45)';
+ const md=Math.max(...R.nodes.map(x=>dr?x.ind:x.deg))||1,rad=i=>5+(dr?R.nodes[i].ind:R.nodes[i].deg)/md*11;
+ if(!dr)L.forEach(([a,b])=>{g.beginPath();g.moveTo(P[a].x,P[a].y);g.lineTo(P[b].x,P[b].y);g.stroke()});else{const se={};R.E.forEach(([a,b])=>{if(a!==b)se[a+'_'+b]=1});Object.keys(se).forEach(k=>{const[a,b]=k.split('_').map(Number);const dx=P[b].x-P[a].x,dy=P[b].y-P[a].y,d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d,x1=P[a].x+ux*rad(a),y1=P[a].y+uy*rad(a),x2=P[b].x-ux*(rad(b)+2),y2=P[b].y-uy*(rad(b)+2);g.strokeStyle='rgba(80,90,120,.55)';g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.fillStyle='rgba(80,90,120,.85)';g.beginPath();g.moveTo(x2,y2);g.lineTo(x2-ux*8-uy*4,y2-uy*8+ux*4);g.lineTo(x2-ux*8+uy*4,y2-uy*8-ux*4);g.fill()})}
+ g.font="11px Sarabun,sans-serif";g.textAlign='center';
+ R.nodes.forEach((nd,i)=>{const r=rad(i);g.fillStyle=PAL[(nd.com-1)%PAL.length];g.beginPath();g.arc(P[i].x,P[i].y,r,0,7);g.fill();g.strokeStyle='#fff';g.stroke();g.fillStyle='#222';g.fillText(nd.name,P[i].x,P[i].y-r-3)});
+ charts.push(o);
+}
+function drawHeat(R){
+ const o=card(t('c_heat'));const cv=o.cv,W=cv.parentElement.clientWidth||560,H=330;cv.width=W*2;cv.height=H*2;const g=cv.getContext('2d');g.scale(2,2);g.fillStyle='#fff';g.fillRect(0,0,W,H);
+ const idx=R.nodes.map((v,i)=>i).sort((a,b)=>R.nodes[b].deg-R.nodes[a].deg).slice(0,20).sort((a,b)=>R.nodes[a].com-R.nodes[b].com);
+ const k=idx.length,pos={};idx.forEach((v,i)=>pos[v]=i);const M=Array.from({length:k},()=>Array(k).fill(0));let mx=0;
+ R.E.forEach(([a,b,w])=>{if(a in pos&&b in pos){M[pos[a]][pos[b]]+=w;mx=Math.max(mx,M[pos[a]][pos[b]])}});
+ const L0=78,T0=74,cs=Math.min((W-L0-8)/k,(H-T0-8)/k);g.font='10px Sarabun,sans-serif';
+ idx.forEach((v,i)=>{g.fillStyle='#222';g.textAlign='right';g.fillText(R.nodes[v].name.slice(0,13),L0-4,T0+i*cs+cs/2+3);g.save();g.translate(L0+i*cs+cs/2,T0-4);g.rotate(-Math.PI/3);g.textAlign='left';g.fillText(R.nodes[v].name.slice(0,13),0,0);g.restore()});
+ for(let i=0;i<k;i++)for(let j=0;j<k;j++){const a=M[i][j]/(mx||1);g.fillStyle=a?`rgba(31,78,156,${.15+.85*a})`:'#f1f3f9';g.fillRect(L0+j*cs,T0+i*cs,cs-1,cs-1)}
+ charts.push(o);
+}
+function doNetwork(rows){
+ const R=network(rows),nd=R.nodes,by=k=>[...nd].sort((a,b)=>b[k]-a[k])[0].name;
+ const G=[['g_n',R.n,'m_n'],['g_m',R.m,'m_m'],['g_d',f3(R.d),'m_d'],['g_ad',f3(R.ad),'m_ad'],['g_c',f3(R.ac),'m_c'],['g_cc',R.cc,'m_cc'],['g_dm',R.dm,'m_dm'],['g_ap',f3(R.ap),'m_ap'],['g_k',R.k,'m_k'],['g_q',f3(R.q),'m_q'],['g_r',f3(R.r),'m_r'],['g_w',f3(R.tw),'m_w']];
+ tables.push({name:t('tG'),head:[t('metric'),t('value'),t('meaning')],body:G.map(r=>[t(r[0]),r[1],t(r[2])]),note:t('exG')(R)});
+ const sorted=[...nd].sort((a,b)=>b.deg-a.deg||b.wd-a.wd);
+ tables.push({name:t('tN'),head:[t('node'),t('deg'),t('ind'),t('outd'),t('wdeg'),t('btw'),t('clo'),t('eig'),t('clu'),t('com'),'PageRank'],body:sorted.map(v=>[v.name,v.deg,v.ind,v.outd,v.wd,f3(v.btw),f3(v.clo),f3(v.eig),f3(v.clu),v.com,f3(v.pr)]),note:t('exN')({a:by('deg'),b:by('btw'),c:by('clo'),e:by('eig')})});
+ const cs=[];for(let c=1;c<=R.k;c++){const mem=nd.filter(v=>v.com===c).map(v=>v.name);cs.push([c,mem.length,mem.join(', ')])}
+ tables.push({name:t('tC'),head:[t('com'),t('size'),t('members')],body:cs,note:t('exC')({s:Math.max(...cs.map(c=>c[1]))})});
+ tables.forEach(renderTable);
+ drawGraph(R);drawGraph(R,true);drawHeat(R);
+ bar(t('c_deg'),topN(nd,'deg'),'deg',PAL[0],t('deg'));
+ bar(t('c_btw'),topN(nd,'btw'),'btw',PAL[1],t('btw'));
+ bar(t('c_clo'),topN(nd,'clo'),'clo',PAL[2],t('clo'));
+ bar(t('c_eig'),topN(nd,'eig'),'eig',PAL[4],t('eig'));
+ bar('PageRank (Top 15)',topN(nd,'pr'),'pr',PAL[7],'PageRank');
+ bar(t('c_wd'),topN(nd,'wd'),'wd',PAL[5],t('wdeg'));
+ bar(t('c_clu'),topN(nd,'clu'),'clu',PAL[6],t('clu'));
+ mk(t('c_com'),'doughnut',{labels:cs.map(c=>t('com')+' '+c[0]),datasets:[{data:cs.map(c=>c[1]),backgroundColor:PAL}]});
+ const mx=Math.max(...nd.map(v=>v.deg)),hist=Array(mx+1).fill(0);nd.forEach(v=>hist[v.deg]++);
+ mk(t('c_hist'),'bar',{labels:hist.map((_,i)=>i),datasets:[{label:t('n'),data:hist,backgroundColor:PAL[3]}]},{xt:t('deg'),yt:t('n')});
+ mk(t('c_sc'),'scatter',{datasets:[{label:t('node'),data:nd.map(v=>({x:v.deg,y:f3(v.btw)})),backgroundColor:PAL[0],pointRadius:6}]},{xt:t('deg'),yt:t('btw')});
+ const t5=topN(nd,'deg',5),M=['deg','btw','clo','eig','clu'],mxs=M.map(k=>Math.max(...nd.map(v=>v[k]))||1);
+ mk(t('c_rad'),'radar',{labels:M.map(k=>t(k)),datasets:t5.map((v,i)=>({label:v.name,data:M.map((k,j)=>f3(v[k]/mxs[j])),borderColor:PAL[i],backgroundColor:PAL[i]+'22'}))});
+ const t10=topN(nd,'deg',10);
+ mk(t('c_io'),'bar',{labels:t10.map(v=>v.name),datasets:[{label:t('ind'),data:t10.map(v=>v.ind),backgroundColor:PAL[0]},{label:t('outd'),data:t10.map(v=>v.outd),backgroundColor:PAL[1]}]});
+}
+
+/* ---------- Sentiment ---------- */
+let RX,CUR=LEX,custom={pos:[],neg:[]},lexRep=false;
+function buildRX(){CUR=lexRep&&(custom.pos.length||custom.neg.length)?custom:{pos:[...new Set([...LEX.pos,...custom.pos])],neg:[...new Set([...LEX.neg,...custom.neg])]};
+ const W=[...CUR.pos.map(w=>[w,1]),...CUR.neg.map(w=>[w,-1])].sort((a,b)=>b[0].length-a[0].length);
+ RX=W.map(([w,s])=>/[a-z]/i.test(w)?[w,s,new RegExp('\\b'+w.replace(/[.*+?^$()|[\]\\{}]/g,'\\$&')+'\\w*','gi')]:[w,s,null]);}
+buildRX();
+const POSV=['pos','positive','บวก','+','1'],NEGV=['neg','negative','ลบ','-','-1'];
+$('lexfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=ev=>{try{const wb=XLSX.read(ev.target.result,{type:'array'});const rs=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});const ks=Object.keys(rs[0]||{});
+  const kw=pick(ks,['word','คำ'],0),kt=pick(ks,['type','polarity','ประเภท'],1),c={pos:[],neg:[]};
+  rs.forEach(x=>{const w=String(x[kw]).trim().toLowerCase(),ty=String(x[kt]).trim().toLowerCase();if(!w)return;if(POSV.includes(ty))c.pos.push(w);else if(NEGV.includes(ty))c.neg.push(w)});
+  if(!c.pos.length&&!c.neg.length)throw 0;custom=c;buildRX();$('lexstat').textContent=t('lexOk')+c.pos.length+' / '+c.neg.length;}
+  catch(x){$('lexstat').textContent=t('lexErr')}};r.readAsArrayBuffer(f)};
+$('lexRep').onchange=e=>{lexRep=e.target.checked;buildRX()};
+$('bDlLex').onclick=()=>{const L=[['Word','Type'],['รายได้เพิ่มขึ้น','pos'],['การจ้างงาน','pos'],['สวัสดิการ','pos'],['ส่งออกขยายตัว','pos'],['ความเชื่อมั่นนักลงทุน','pos'],['เศรษฐกิจฟื้น','pos'],['subsidy','pos'],['investment','pos'],['trade deal','pos'],['ภาษีสูง','neg'],['ขาดแคลน','neg'],['ราคาแพง','neg'],['ปิดกิจการ','neg'],['ค่าครองชีพสูง','neg'],['ตกงาน','neg'],['tariff','neg'],['layoff','neg'],['boycott','neg']];
+ const I=[['Column','Description (EN)','คำอธิบาย (TH)'],['Word','Word or phrase to match (Thai: substring match; English: word stem match, case-insensitive)','คำหรือวลีที่ต้องการจับ (ไทย: จับแบบข้อความย่อย, อังกฤษ: จับรากคำ ไม่สนตัวพิมพ์เล็กใหญ่)'],['Type','pos / positive / บวก / + / 1 = positive; neg / negative / ลบ / - / -1 = negative','pos / positive / บวก / + / 1 = เชิงบวก; neg / negative / ลบ / - / -1 = เชิงลบ'],['Tip','Longer phrases are matched first, so a phrase such as ไม่พอใจ is not counted as พอใจ','วลียาวจะถูกจับก่อน เช่น ไม่พอใจ จะไม่ถูกนับเป็น พอใจ']];
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(L),'Lexicon');XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(I),'Instructions');dl(xlsxBlob(wb),'sample_lexicon.xlsx');};
+function scoreText(txt){let s=' '+String(txt).toLowerCase()+' ',p=0,n=0;const hit={};
+ RX.forEach(([w,sg,rx])=>{let c=0;if(rx){s=s.replace(rx,()=>{c++;return ' '})}else{let i;while((i=s.indexOf(w))>=0){c++;s=s.slice(0,i)+' '+s.slice(i+w.length)}}
+  if(c){hit[w]=(hit[w]||0)+c;if(sg>0)p+=c;else n+=c}});
+ const sc=p+n?(p-n)/(p+n):0;return{p,n,sc,hit,lb:sc>.05?1:sc<-.05?-1:0}}
+const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+const sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))};
+const med=a=>{const s=[...a].sort((x,y)=>x-y),h=s.length>>1;return s.length%2?s[h]:(s[h-1]+s[h])/2};
+function doSentiment(rows){
+ const ks=Object.keys(rows[0]||{});if(!ks.length)throw 0;
+ const kt=pick(ks,['text','ข้อความ','comment'],0),ka=ks.length>1?pick(ks,['actor','source','ผู้พูด','กลุ่ม'],1):null,kd=ks.length>2?pick(ks,['date','วันที่'],2):null;
+ const D=rows.filter(r=>String(r[kt]).trim()!=='').map(r=>{const x=scoreText(r[kt]);let dt=r[kd];if(dt instanceof Date)dt=dt.toISOString().slice(0,7);return{...x,text:String(r[kt]),actor:ka&&r[ka]!==''?String(r[ka]):'-',date:kd&&dt!==''&&dt!==undefined?String(dt):''}});
+ if(!D.length)throw 0;
+ const sc=D.map(d=>d.sc),N=D.length,cnt=l=>D.filter(d=>d.lb===l).length,pp=cnt(1)/N*100,pg=cnt(-1)/N*100;
+ const S=[['s_n',N],['s_p',cnt(1)],['s_u',cnt(0)],['s_g',cnt(-1)],['s_pp',f3(pp)],['s_pg',f3(pg)],['s_m',f3(mean(sc))],['s_md',f3(med(sc))],['s_sd',f3(sd(sc))],['s_mn',f3(Math.min(...sc))],['s_mx',f3(Math.max(...sc))]];
+ tables.push({name:t('tS'),head:[t('metric'),t('value')],body:S.map(r=>[t(r[0]),r[1]]),note:t('exS')({n:N,m:mean(sc),pp,pg,sd:sd(sc)})});
+ const grp=(key)=>{const g={};D.forEach(d=>(g[d[key]]=g[d[key]]||[]).push(d));return Object.entries(g).map(([k,v])=>({name:k,n:v.length,m:mean(v.map(d=>d.sc)),sd:sd(v.map(d=>d.sc)),pos:v.filter(d=>d.lb>0).length,neu:v.filter(d=>d.lb===0).length,neg:v.filter(d=>d.lb<0).length}))};
+ const hd=[t('n'),t('s_m'),t('s_sd'),t('s_p'),t('s_u'),t('s_g'),t('s_pp'),t('s_pg')];
+ const row=a=>[a.n,f3(a.m),f3(a.sd),a.pos,a.neu,a.neg,f3(a.pos/a.n*100),f3(a.neg/a.n*100)];
+ const A=grp('actor').sort((a,b)=>b.m-a.m);
+ tables.push({name:t('tA'),head:[t('actor'),...hd],body:A.map(a=>[a.name,...row(a)]),note:t('exA')({hi:A[0].name,lo:A[A.length-1].name})});
+ const TM=D.some(d=>d.date)?grp('date').filter(x=>x.name!=='').sort((a,b)=>a.name.localeCompare(b.name)):[];
+ if(TM.length)tables.push({name:t('tT'),head:[t('time'),...hd],body:TM.map(a=>[a.name,...row(a)]),note:t('exT')});
+ const wc={};D.forEach(d=>Object.entries(d.hit).forEach(([w,c])=>wc[w]=(wc[w]||0)+c));
+ const WL=Object.entries(wc).map(([w,c])=>({name:w,c,pos:CUR.pos.includes(w)})).sort((a,b)=>b.c-a.c);
+ tables.push({name:t('tW'),head:[t('word'),t('type'),t('freq')],body:WL.map(w=>[w.name,w.pos?t('pos'):t('neg'),w.c]),note:t('exW')});
+ tables.push({name:t('tD'),head:[t('text'),t('actor'),t('pos'),t('neg'),t('score'),t('label')],body:D.map(d=>[d.text.slice(0,90),d.actor,d.p,d.n,f3(d.sc),d.lb>0?t('s_p'):d.lb<0?t('s_g'):t('s_u')]),note:t('exD')});
+ tables.forEach(renderTable);
+ const C=['#188a4f','#9aa5b8','#c0392b'];
+ mk(t('c_pie'),'pie',{labels:[t('s_p'),t('s_u'),t('s_g')],datasets:[{data:[cnt(1),cnt(0),cnt(-1)],backgroundColor:C}]});
+ const bins=[-1,-.75,-.5,-.25,0,.25,.5,.75,1],h=Array(8).fill(0);sc.forEach(s=>{h[Math.min(7,Math.max(0,Math.floor((s+1)/.25)))]++});
+ mk(t('c_sh'),'bar',{labels:bins.slice(0,8).map((b,i)=>b+' – '+bins[i+1]),datasets:[{label:t('n'),data:h,backgroundColor:h.map((_,i)=>i<3?C[2]:i<5?C[1]:C[0])}]},{xt:t('score'),yt:t('n')});
+ mk(t('c_am'),'bar',{labels:A.map(a=>a.name),datasets:[{label:t('s_m'),data:A.map(a=>f3(a.m)),backgroundColor:A.map(a=>a.m>=0?C[0]:C[2])}]});
+ mk(t('c_st'),'bar',{labels:A.map(a=>a.name),datasets:[{label:t('s_p'),data:A.map(a=>a.pos),backgroundColor:C[0]},{label:t('s_u'),data:A.map(a=>a.neu),backgroundColor:C[1]},{label:t('s_g'),data:A.map(a=>a.neg),backgroundColor:C[2]}]},{stack:true});
+ if(TM.length>1)mk(t('c_ln'),'line',{labels:TM.map(a=>a.name),datasets:[{label:t('s_m'),data:TM.map(a=>f3(a.m)),borderColor:PAL[0],backgroundColor:PAL[0]+'33',fill:true,tension:.3}]});
+ const wp=WL.filter(w=>w.pos).slice(0,12),wn=WL.filter(w=>!w.pos).slice(0,12);
+ if(wp.length)mk(t('c_wp'),'bar',{labels:wp.map(w=>w.name),datasets:[{label:t('freq'),data:wp.map(w=>w.c),backgroundColor:C[0]}]},{h:true});
+ if(wn.length)mk(t('c_wn'),'bar',{labels:wn.map(w=>w.name),datasets:[{label:t('freq'),data:wn.map(w=>w.c),backgroundColor:C[2]}]},{h:true});
+ mk(t('c_ss'),'scatter',{datasets:[{label:t('text'),data:D.map(d=>({x:d.p,y:d.n})),backgroundColor:PAL[1],pointRadius:6}]},{xt:t('pos'),yt:t('neg')});
+ mk(t('c_ad'),'doughnut',{labels:A.map(a=>a.name),datasets:[{data:A.map(a=>a.n),backgroundColor:PAL}]});
+}
+
+/* ---------- run ---------- */
+function run(){
+ if(!data||!data.length){$('status').textContent=t('nofile');return}
+ killCharts();tables=[];$('tables').innerHTML='';$('charts').innerHTML='';
+ try{method==='network'?doNetwork(data):doSentiment(data);$('out').classList.remove('hide');$('status').textContent=t('done');
+  if(!window._scrolled){window._scrolled=1}$('out').scrollIntoView({behavior:'smooth'});}
+ catch(e){console.error(e);$('status').textContent=t('err');$('out').classList.add('hide')}
+}
+applyLang();
+</script>
+</body>
+</html>
